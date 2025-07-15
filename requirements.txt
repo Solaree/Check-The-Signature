@@ -1,0 +1,4 @@
+lxml
+pyhanko
+requests
+asn1crypto

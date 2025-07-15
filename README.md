@@ -1,2 +1,66 @@
 # Check-The-Signature
-A tiny replacement of https://id.gov.ua/verify-widget/v20240221/?address=https://id.gov.ua
+A tiny alternative to [JSC "IIT" web-widget for verifying the user's signature of the Certification Authority](https://id.gov.ua/verify-widget/v20240221/?address=https://id.gov.ua)
+
+Verifies Ukrainian digital signatures using UAPKI.
+
+
+## Installation
+
+### 1. Download UAPKI for Linux (latest release)
+
+```sh
+curl -L -o uapki-v2.0.12-linux-amd64.tar.gz https://github.com/specinfo-ua/UAPKI/releases/download/v2.0.12/uapki-v2.0.12-linux-amd64.tar.gz
+```
+
+### 2. Extract the archive
+
+```sh
+tar -xzf uapki-v2.0.12-linux-amd64.tar.gz
+cd uapki-v2.0.12-linux-amd64
+```
+
+### 3. Copy the libraries to `/usr/lib` and create symlinks
+
+```sh
+sudo cp libuapki.so.2.0.12 libuapkic.so.2.0.12 libuapkif.so.2.0.12 /usr/lib/
+
+cd /usr/lib
+sudo ln -sf libuapki.so.2.0.12 libuapki.so
+sudo ln -sf libuapki.so.2.0.12 libuapki.so.2
+sudo ln -sf libuapkic.so.2.0.12 libuapkic.so
+sudo ln -sf libuapkic.so.2.0.12 libuapkic.so.2
+sudo ln -sf libuapkif.so.2.0.12 libuapkif.so
+sudo ln -sf libuapkif.so.2.0.12 libuapkif.so.2
+```
+
+### 4. Update the dynamic linker cache
+
+```sh
+sudo ldconfig
+```
+
+---
+
+## Running the Verification Script
+
+1. Ensure you have **Python 3** and **pip** installed.
+
+2. Install required Python packages:
+
+```sh
+pip install -r requirements.txt
+```
+
+3. Run the script with a file to verify:
+
+```sh
+python verify.py <file-to-check>
+```
+
+---
+
+## Notes
+
+* Adjust library version numbers if you download a different UAPKI version.
+* The script supports verification of both **PAdES (PDF signatures)** and **CAdES (CMS signatures)** formats.
+* Cached trusted certificates are automatically handled to speed up repeated verifications.

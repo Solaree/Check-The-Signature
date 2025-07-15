@@ -63,3 +63,4 @@ $ python verify.py <file-to-check>
 * Adjust library version numbers if you download a different UAPKI version.
 * The script supports verification of both **PAdES (PDF signatures)** and **CAdES (CMS signatures)** formats.
 * Cached trusted certificates are automatically handled to speed up repeated verifications.
+* Support for **ASN.1 parsing** and **XAdES (XML signatures)** format is planned for future releases.

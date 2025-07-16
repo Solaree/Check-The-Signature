@@ -1,4 +1,4 @@
-import io, os, sys, time, json, ctypes, base64, argparse, requests
+import io, os, sys, time, json, ctypes, base64, argparse, requests, warnings
 
 from lxml import etree
 from asn1crypto import cms
@@ -64,8 +64,7 @@ def extract_der_from_pdf(filename, sig_index=0):
     byte_range = list(map(int, byte_range))
     if len(byte_range) != 4:
       raise ValueError("Invalid /ByteRange format")
-    cms_der = contents if isinstance(contents, bytes) else contents.original_bytes
-    return cms_der.rstrip(b'\x00'), buf[byte_range[0]:byte_range[0] + byte_range[1]] + buf[byte_range[2]:byte_range[2] + byte_range[3]]
+    return (contents if isinstance(contents, bytes) else contents.original_bytes).rstrip(b'\x00'), buf[byte_range[0]:byte_range[0] + byte_range[1]] + buf[byte_range[2]:byte_range[2] + byte_range[3]]
 
 
 if __name__ == "__main__":
@@ -109,6 +108,8 @@ if __name__ == "__main__":
         print("[!] In enveloped mode, the argument must be a CMS signature with encapsulated PDF")
         sys.exit(1)
       print("[*] Detected: CAdES format (enveloped)")
+
+  warnings.filterwarnings("ignore", category=UserWarning)
 
   lib = ctypes.cdll.LoadLibrary("libuapki.so")
   lib.process.argtypes = [ctypes.c_char_p]
@@ -172,10 +173,48 @@ if __name__ == "__main__":
   response_ptr = lib.process(json.dumps(request).encode())
   response_str = ctypes.cast(response_ptr, ctypes.c_char_p).value.decode()
 
-  if json.loads(response_str)["errorCode"]:
+  response = json.loads(response_str)
+  if response["errorCode"] != 0:
     print(f"[!] Verification failed: {response_str}")
     sys.exit(1)
-  print(response_str)
+
+  sig_info = response["result"]["signatureInfos"][0]
+  status = sig_info["status"]
+  valid_signatures = sig_info["validSignatures"]
+  valid_digests = sig_info["validDigests"]
+  status_message_digest = sig_info["statusMessageDigest"]
+  status_ess_cert = sig_info["statusEssCert"]
+  if (
+    status == "TOTAL-VALID"
+    and valid_signatures
+    and valid_digests
+    and status_message_digest == "VALID"
+    and status_ess_cert == "VALID"
+  ):
+    print("[*] Signature verification successful")
+    # print(response_str)
+    content_info = cms.ContentInfo.load(cms_der) # openssl pkcs7 [file] -inform DER -print_certs -noout
+    signed_data = content_info['content']
+    cert = signed_data['certificates'][0].chosen
+    print_certs = lambda name, label: (
+        print(f"[*] {label}:") or [
+          print(f"  {attr['type'].native} = {attr['value'].native}") 
+          for rdn in name.chosen 
+          for attr in rdn
+        ]
+    )
+    print_certs(cert.subject, "Subject")
+    print_certs(cert.issuer, "Issuer")
+    signing_time = sig_info["signingTime"] if "signingTime" in sig_info else None
+    print(f"[*] Signing Time:", signing_time if signing_time else "Not available")
+  else:
+    print("[!] Signature verification returned warnings or errors.")
+    print(f"Status: {status}")
+    print(f"Valid Signatures: {valid_signatures}")
+    print(f"Valid Digests: {valid_digests}")
+    print(f"Status Message Digest: {status_message_digest}")
+    sys.exit(1)
+
   lib.json_free(response_ptr)
 
   request["method"] = "DEINIT"
@@ -186,3 +225,4 @@ if __name__ == "__main__":
     print(f"[!] Deinitialization failed: {response_str}")
     sys.exit(1)
   lib.json_free(response_ptr)
+  

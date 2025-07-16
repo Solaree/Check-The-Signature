@@ -1,5 +1,5 @@
 # Check-The-Signature
-A tiny alternative to [JSC "IIT" web-widget for verifying the user's signature of the Certification Authority](https://id.gov.ua/verify-widget/v20240221/?address=https://id.gov.ua)
+A tiny alternative to [JSC "IIT" web-widget for verifying the user's signature of the Certification Authority](https://eu.iit.com.ua/verify-widget)
 
 Verifies Ukrainian digital signatures using UAPKI.
 

@@ -1,22 +1,28 @@
-import io, os, sys, time, json, ctypes, base64, requests
+import io, os, sys, time, json, ctypes, base64, argparse, requests
 
 from lxml import etree
 from asn1crypto import cms
 from pyhanko.pdf_utils.reader import PdfFileReader
 
 
-CACHE_FILENAME = ".cert_cache.json"
+CACHE_FILENAME = ".certs.json"
 CACHE_MAX_AGE = 24 * 3600  # 24 hours
 CCA_URL = "https://czo.gov.ua/download/tl/TL-UA-DSTU.xml" # Trusted list with the list of QTSPs for the use of TS within Ukraine
 
 def load_cached_certs():
   if not os.path.exists(CACHE_FILENAME):
     return None
-  if time.time() - os.path.getmtime(CACHE_FILENAME) > CACHE_MAX_AGE:
+  try:
+    with open(CACHE_FILENAME, "r") as f:
+      data = json.load(f)
+    timestamp = data["timestamp"]
+    if timestamp is None:
+      return None
+    if time.time() - timestamp > CACHE_MAX_AGE:
+      return None
+    return data["X509Certificates"]
+  except (json.JSONDecodeError, IOError):
     return None
-  with open(CACHE_FILENAME, "r") as f:
-    data = json.load(f)
-  return data.get("X509Certificates", [])
 
 def save_certs_cache(certs):
   with open(CACHE_FILENAME, "w") as f:
@@ -24,8 +30,11 @@ def save_certs_cache(certs):
 
 def is_pdf_file(path):
   with open(path, 'rb') as f:
-    header = f.read(5)
-    return header.startswith(b"%PDF-")
+    return f.read(4).startswith(b"%PDF")
+
+def is_der_file(path):
+  with open(path, 'rb') as f:
+    return f.read(2).startswith(b"0\x82")
 
 def extract_pdf_from_der(filename):
   with open(filename, 'rb') as f:
@@ -60,16 +69,46 @@ def extract_der_from_pdf(filename, sig_index=0):
 
 
 if __name__ == "__main__":
-  if len(sys.argv) < 2:
-    print("Usage: script.py <filename>")
-    sys.exit(1)
-  path = sys.argv[1]
-  if is_pdf_file(path):
-    print("[*] Detected: PAdES format")
-    cms_der, pdf_data = extract_der_from_pdf(path)
+  parser = argparse.ArgumentParser(description="Verify PAdES or CAdES digital signatures")
+  parser.add_argument("file", help="Path to the PDF (.pdf) or enveloped CMS (.p7s) signature")
+  parser.add_argument("cms", nargs='?', default=None, help="Path to the detached CMS (.p7s) signature (optional)")
+  args = parser.parse_args()
+  file_path = args.file
+  sig_path = args.cms
+  file_ext = os.path.splitext(file_path)[1].lower()
+  sig_ext = os.path.splitext(sig_path)[1].lower() if sig_path else None
+
+  if sig_path:
+    if file_ext != '.pdf' or not is_pdf_file(file_path):
+      print("[!] In detached mode, the first argument must be a unsigned PDF")
+      sys.exit(1)
+    if sig_ext != '.p7s' or not is_der_file(sig_path):
+      print("[!] In detached mode, the second argument must be a detached CMS signature")
+      sys.exit(1)
+    with open(sig_path, 'rb') as f:
+      cms_der = f.read()
+    with open(file_path, 'rb') as f:
+      pdf_data = f.read()
+    if not cms_der:
+      print("[!] Failed to read CMS signature")
+      sys.exit(1)
+    if not pdf_data:
+      print("[!] Failed to read PDF file")
+      sys.exit(1)
+    print("[*] Detected: CAdES format (detached)")
   else:
-    print("[*] Detected: CAdES format")
-    cms_der, pdf_data = extract_pdf_from_der(path)
+    if is_pdf_file(file_path):
+      cms_der, pdf_data = extract_der_from_pdf(file_path)
+      if not cms_der:
+        print("[!] In PAdES mode, the argument must be a signed PDF")
+        sys.exit(1)
+      print("[*] Detected: PAdES format")
+    else:
+      cms_der, pdf_data = extract_pdf_from_der(file_path)
+      if not pdf_data:
+        print("[!] In enveloped mode, the argument must be a CMS signature with encapsulated PDF")
+        sys.exit(1)
+      print("[*] Detected: CAdES format (enveloped)")
 
   lib = ctypes.cdll.LoadLibrary("libuapki.so")
   lib.process.argtypes = [ctypes.c_char_p]

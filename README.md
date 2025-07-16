@@ -50,10 +50,20 @@ $ sudo ldconfig
 $ pip install -r requirements.txt
 ```
 
-3. Run the script with a file to verify:
+3. Run the script:
 
 ```sh
-$ python verify.py <file-to-check>
+$ python verify.py -h
+usage: verify.py [-h] file [cms]
+
+Verify PAdES or CAdES digital signatures
+
+positional arguments:
+  file        Path to the PDF (.pdf) or enveloped CMS (.p7s) signature
+  cms         Path to the detached CMS (.p7s) signature (optional)
+
+options:
+  -h, --help  show this help message and exit
 ```
 
 ---

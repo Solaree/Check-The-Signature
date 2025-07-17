@@ -9,6 +9,7 @@ CACHE_FILENAME = ".certs.json"
 CACHE_MAX_AGE = 24 * 3600  # 24 hours
 CCA_URL = "https://czo.gov.ua/download/tl/TL-UA-DSTU.xml" # Trusted list with the list of QTSPs for the use of TS within Ukraine
 
+
 def load_cached_certs():
   if not os.path.exists(CACHE_FILENAME):
     return None
@@ -208,7 +209,7 @@ if __name__ == "__main__":
     signing_time = sig_info["signingTime"] if "signingTime" in sig_info else None
     print(f"[*] Signing Time:", signing_time if signing_time else "Not available")
   else:
-    print("[!] Signature verification returned warnings or errors.")
+    print("[!] Signature verification returned warnings or errors")
     print(f"Status: {status}")
     print(f"Valid Signatures: {valid_signatures}")
     print(f"Valid Digests: {valid_digests}")
@@ -225,4 +226,3 @@ if __name__ == "__main__":
     print(f"[!] Deinitialization failed: {response_str}")
     sys.exit(1)
   lib.json_free(response_ptr)
-  

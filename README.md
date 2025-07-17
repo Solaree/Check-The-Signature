@@ -1,7 +1,7 @@
 # Check-The-Signature
 A tiny alternative to [JSC "IIT" web-widget for verifying the user's signature of the Certification Authority](https://eu.iit.com.ua/verify-widget)
 
-Verifies Ukrainian digital signatures using UAPKI.
+Verify PAdES and CAdES digital signatures using DSTU 4145-2002.
 
 
 ## Installation
@@ -56,7 +56,7 @@ $ pip install -r requirements.txt
 $ python verify.py -h
 usage: verify.py [-h] file [cms]
 
-Verify PAdES or CAdES digital signatures
+Verify PAdES and CAdES digital signatures using DSTU 4145-2002
 
 positional arguments:
   file        Path to the PDF (.pdf) or enveloped CMS (.p7s) signature
@@ -68,9 +68,10 @@ options:
 
 ## Example output
 
-```sh
+```
 [*] Detected: CAdES format (detached)
-[*] Loaded 298 certificate(s) from cache
+[*] Fetching certificates from Central Certification Authority...
+[*] Found 298 certificate(s) within CCA
 [*] Signature verification successful
 [*] Subject:
   common_name = Дія Надія Володимирівна
@@ -81,11 +82,13 @@ options:
 [*] Issuer:
   organization_name = ДП "ДІЯ"
   common_name = "Дія". Кваліфікований надавач електронних довірчих послуг
-  serial_number = UA-43395033-2301
+  serial_number = UA-43395033-1000
   country_name = UA
   locality_name = Київ
   organization_identifier = NTRUA-43395033
 [*] Signing Time: 2025-08-24 00:00:00
+[*] Signature Algorithm: Dstu4145WithGost34311pb
+[*] Signature Format: CAdES-BES
 ```
 
 ---
@@ -93,6 +96,5 @@ options:
 ## Notes
 
 * Adjust library version numbers if you download a different UAPKI version.
-* The script supports verification of both **PAdES (PDF signatures)** and **CAdES (CMS signatures)** formats.
 * Cached trusted certificates are automatically handled to speed up repeated verifications.
 * Support for the **signed protocol for the creation and verification of advanced electronic signatures**, as well as for the **XAdES (XML signatures)** format, is planned for future releases.

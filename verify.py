@@ -8,7 +8,13 @@ from pyhanko.pdf_utils.reader import PdfFileReader
 CACHE_FILENAME = ".certs.json"
 CACHE_MAX_AGE = 24 * 3600  # 24 hours
 CCA_URL = "https://czo.gov.ua/download/tl/TL-UA-DSTU.xml" # Trusted list with the list of QTSPs for the use of TS within Ukraine
-
+OID_ALGOS = { # https://zakon.rada.gov.ua/laws/show/z1399-12
+  "1.2.804.2.1.1.1.1.3.1.1": "Dstu4145WithGost34311pb",
+  "1.2.804.2.1.1.1.1.3.1.2": "Dstu4145WithGost34311оnb",
+  "1.2.804.2.1.1.1.1.3.6.1": "Dstu4145WithDstu7564-256",
+  "1.2.804.2.1.1.1.1.3.6.2": "Dstu4145WithDstu7564-384",
+  "1.2.804.2.1.1.1.1.3.6.3": "Dstu4145WithDstu7564-512"
+}
 
 def load_cached_certs():
   if not os.path.exists(CACHE_FILENAME):
@@ -69,7 +75,7 @@ def extract_der_from_pdf(filename, sig_index=0):
 
 
 if __name__ == "__main__":
-  parser = argparse.ArgumentParser(description="Verify PAdES or CAdES digital signatures")
+  parser = argparse.ArgumentParser(description="Verify PAdES and CAdES digital signatures using DSTU 4145-2002")
   parser.add_argument("file", help="Path to the PDF (.pdf) or enveloped CMS (.p7s) signature")
   parser.add_argument("cms", nargs='?', default=None, help="Path to the detached CMS (.p7s) signature (optional)")
   args = parser.parse_args()
@@ -208,6 +214,8 @@ if __name__ == "__main__":
     print_certs(cert.issuer, "Issuer")
     signing_time = sig_info["signingTime"] if "signingTime" in sig_info else None
     print(f"[*] Signing Time:", signing_time if signing_time else "Not available")
+    print(f"[*] Signature Algorithm: {OID_ALGOS[sig_info["signAlgo"]]}")
+    print(f"[*] Signature Format: {sig_info["signatureFormat"]}")
   else:
     print("[!] Signature verification returned warnings or errors")
     print(f"Status: {status}")

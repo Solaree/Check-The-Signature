@@ -6,7 +6,7 @@ Verifies Ukrainian digital signatures using UAPKI.
 
 ## Installation
 
-### 1. Download UAPKI for Linux (latest release)
+### 1. Download [UAPKI](https://github.com/specinfo-ua/UAPKI) for Linux (latest release)
 
 ```sh
 $ curl -L -o uapki-v2.0.12-linux-amd64.tar.gz https://github.com/specinfo-ua/UAPKI/releases/download/v2.0.12/uapki-v2.0.12-linux-amd64.tar.gz

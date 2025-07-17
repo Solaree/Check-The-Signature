@@ -66,6 +66,28 @@ options:
   -h, --help  show this help message and exit
 ```
 
+## Example output
+
+```sh
+[*] Detected: CAdES format (detached)
+[*] Loaded 298 certificate(s) from cache
+[*] Signature verification successful
+[*] Subject:
+  common_name = Дія Надія Володимирівна
+  surname = Дія
+  given_name = Надія Володимирівна
+  serial_number = TINUA-1234567890
+  country_name = UA
+[*] Issuer:
+  organization_name = ДП "ДІЯ"
+  common_name = "Дія". Кваліфікований надавач електронних довірчих послуг
+  serial_number = UA-43395033-2301
+  country_name = UA
+  locality_name = Київ
+  organization_identifier = NTRUA-43395033
+[*] Signing Time: 2025-08-24 00:00:00
+```
+
 ---
 
 ## Notes
@@ -73,4 +95,4 @@ options:
 * Adjust library version numbers if you download a different UAPKI version.
 * The script supports verification of both **PAdES (PDF signatures)** and **CAdES (CMS signatures)** formats.
 * Cached trusted certificates are automatically handled to speed up repeated verifications.
-* Support for **ASN.1 parsing** and **XAdES (XML signatures)** format is planned for future releases.
+* Support for the **signed protocol for the creation and verification of advanced electronic signatures**, as well as for the **XAdES (XML signatures)** format, is planned for future releases.

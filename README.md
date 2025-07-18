@@ -74,11 +74,13 @@ options:
 [*] Found 298 certificate(s) within CCA
 [*] Signature verification successful
 [*] Subject:
-  common_name = Дія Надія Володимирівна
-  surname = Дія
-  given_name = Надія Володимирівна
+  common_name = Ткаченко Мар'яна Іванівна
+  surname = Ткаченко
+  given_name = Мар'яна Іванівна
   serial_number = TINUA-1234567890
   country_name = UA
+[*] RNOKPP or passport number of a citizen of Ukraine = 1234567890
+[*] UNZR = 19910824-00026
 [*] Issuer:
   organization_name = ДП "ДІЯ"
   common_name = "Дія". Кваліфікований надавач електронних довірчих послуг
@@ -97,4 +99,4 @@ options:
 
 * Adjust library version numbers if you download a different UAPKI version.
 * Cached trusted certificates are automatically handled to speed up repeated verifications.
-* Support for the **signed protocol for the creation and verification of advanced electronic signatures**, as well as for the **XAdES (XML signatures)** format, is planned for future releases.
+* Support for the **protocol for the creation and verification of advanced electronic signatures**, as well as for the **XAdES (XML signatures)** format, is planned for future releases.

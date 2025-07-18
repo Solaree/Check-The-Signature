@@ -1,19 +1,25 @@
-import io, os, sys, time, json, ctypes, base64, argparse, requests, warnings
+import io, os, sys, time, json, ctypes, base64, argparse, warnings, requests
 
 from lxml import etree
 from asn1crypto import cms
+from zoneinfo import ZoneInfo
 from pyhanko.pdf_utils.reader import PdfFileReader
 
 
-CACHE_FILENAME = ".certs.json"
+CACHE_FILENAME = ".cca_certs.json"
 CACHE_MAX_AGE = 24 * 3600  # 24 hours
 CCA_URL = "https://czo.gov.ua/download/tl/TL-UA-DSTU.xml" # Trusted list with the list of QTSPs for the use of TS within Ukraine
-OID_ALGOS = { # https://zakon.rada.gov.ua/laws/show/z1399-12
+
+# https://zakon.rada.gov.ua/laws/show/z1399-12
+OID_MAP = {
   "1.2.804.2.1.1.1.1.3.1.1": "Dstu4145WithGost34311pb",
   "1.2.804.2.1.1.1.1.3.1.2": "Dstu4145WithGost34311оnb",
   "1.2.804.2.1.1.1.1.3.6.1": "Dstu4145WithDstu7564-256",
   "1.2.804.2.1.1.1.1.3.6.2": "Dstu4145WithDstu7564-384",
-  "1.2.804.2.1.1.1.1.3.6.3": "Dstu4145WithDstu7564-512"
+  "1.2.804.2.1.1.1.1.3.6.3": "Dstu4145WithDstu7564-512",
+  '1.2.804.2.1.1.1.11.1.4.1.1': 'RNOKPP or passport number of a citizen of Ukraine',
+  '1.2.804.2.1.1.1.11.1.4.2.1': 'EDRPOU',
+  '1.2.804.2.1.1.1.11.1.4.11.1': 'UNZR',
 }
 
 def load_cached_certs():
@@ -109,6 +115,7 @@ if __name__ == "__main__":
         print("[!] In PAdES mode, the argument must be a signed PDF")
         sys.exit(1)
       print("[*] Detected: PAdES format")
+      isPAdES = True
     else:
       cms_der, pdf_data = extract_pdf_from_der(file_path)
       if not pdf_data:
@@ -141,10 +148,8 @@ if __name__ == "__main__":
     response = requests.get(CCA_URL)
     response.raise_for_status()
     buf = io.BytesIO(response.content)
-
     tree = etree.parse(buf)
     ns = {'tsl': tree.getroot().nsmap.get(None)}
-
     seen = set()
     certs = []
     for service in tree.findall('.//tsl:TSPService', namespaces=ns):
@@ -204,17 +209,29 @@ if __name__ == "__main__":
     signed_data = content_info['content']
     cert = signed_data['certificates'][0].chosen
     print_certs = lambda name, label: (
-        print(f"[*] {label}:") or [
-          print(f"  {attr['type'].native} = {attr['value'].native}") 
-          for rdn in name.chosen 
-          for attr in rdn
-        ]
+      print(f"[*] {label}:") or [
+        print(f"  {attr['type'].native} = {attr['value'].native}") 
+        for rdn in name.chosen 
+        for attr in rdn
+      ]
     )
     print_certs(cert.subject, "Subject")
+    [print(f"[*] {OID_MAP[attr['type'].dotted]} = {attr['values'][0].native}") 
+     for attr in next((e for e in cert['tbs_certificate']['extensions'] if e['extn_id'].dotted == '2.5.29.9'), None)['extn_value'].parsed]
     print_certs(cert.issuer, "Issuer")
     signing_time = sig_info["signingTime"] if "signingTime" in sig_info else None
-    print(f"[*] Signing Time:", signing_time if signing_time else "Not available")
-    print(f"[*] Signature Algorithm: {OID_ALGOS[sig_info["signAlgo"]]}")
+    if not signing_time and isPAdES:
+      signer_info = signed_data['signer_infos'][0]
+      u_attr = next((attr for attr in signer_info['unsigned_attrs'] if attr['type'].dotted == '1.2.840.113549.1.9.16.2.14'), None)
+      if u_attr:
+        u_obj = u_attr['values'][0].native
+        signer_infos = u_obj['content']['signer_infos']
+        if signer_infos:
+          signing_time = next((attr['values'][0] for attr in signer_infos[0]['signed_attrs'] if attr['type'] == 'signing_time'), None).astimezone(ZoneInfo("Europe/Kyiv")).replace(tzinfo=None)
+    else:
+      signing_time = "Not available"
+    print(f"[*] Signing Time:", signing_time)
+    print(f"[*] Signature Algorithm: {OID_MAP[sig_info["signAlgo"]]}")
     print(f"[*] Signature Format: {sig_info["signatureFormat"]}")
   else:
     print("[!] Signature verification returned warnings or errors")

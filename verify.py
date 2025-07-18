@@ -2,6 +2,7 @@ import io, os, sys, time, json, ctypes, base64, argparse, warnings, requests
 
 from lxml import etree
 from asn1crypto import cms
+from datetime import datetime
 from zoneinfo import ZoneInfo
 from pyhanko.pdf_utils.reader import PdfFileReader
 
@@ -62,16 +63,20 @@ def extract_pdf_from_der(filename):
     raise ValueError("No encapsulated content")
   return cms_der, econtent.native
 
-def extract_der_from_pdf(filename, sig_index=0):
+def extract_der_from_pdf(filename):
   with open(filename, 'rb') as f:
     buf = f.read()
     reader = PdfFileReader(f, strict=False)
-    sigs = list(reader.embedded_signatures)
-    if not len(sigs) :
-      raise Exception("No embedded signatures found")
-    sig = sigs[sig_index]
-    contents = sig.sig_object['/Contents']
-    byte_range = sig.sig_object['/ByteRange']
+    acroform = reader.root['/AcroForm']
+    fields = acroform['/Fields']
+    sig_field_ref = fields[0]
+    sig_field = sig_field_ref.get_object()
+    sig_obj_ref = sig_field['/V']
+    if not sig_obj_ref:
+      raise Exception("No signature object in field")
+    sig = sig_obj_ref.get_object()
+    contents = sig['/Contents']
+    byte_range = sig['/ByteRange']
     if not isinstance(byte_range, list):
       byte_range = byte_range.get_object()
     byte_range = list(map(int, byte_range))
@@ -115,7 +120,6 @@ if __name__ == "__main__":
         print("[!] In PAdES mode, the argument must be a signed PDF")
         sys.exit(1)
       print("[*] Detected: PAdES format")
-      isPAdES = True
     else:
       cms_der, pdf_data = extract_pdf_from_der(file_path)
       if not pdf_data:
@@ -216,11 +220,15 @@ if __name__ == "__main__":
       ]
     )
     print_certs(cert.subject, "Subject")
-    [print(f"[*] {OID_MAP[attr['type'].dotted]} = {attr['values'][0].native}") 
-     for attr in next((e for e in cert['tbs_certificate']['extensions'] if e['extn_id'].dotted == '2.5.29.9'), None)['extn_value'].parsed]
+    ext = next((e for e in cert['tbs_certificate']['extensions'] if e['extn_id'].dotted == '2.5.29.9'), None)
+    if ext:
+      for attr in ext['extn_value'].parsed:
+        print(f"[*] {OID_MAP[attr['type'].dotted]} = {attr['values'][0].native}")
+    else:
+      print(f"[*] Signer's personal data = Not available")
     print_certs(cert.issuer, "Issuer")
-    signing_time = sig_info["signingTime"] if "signingTime" in sig_info else None
-    if not signing_time and isPAdES:
+    signing_time = datetime.strptime(sig_info["signingTime"], "%Y-%m-%d %H:%M:%S").replace(tzinfo=ZoneInfo("UTC")).astimezone(ZoneInfo("Europe/Kyiv")).replace(tzinfo=None) if "signingTime" in sig_info else None
+    if not signing_time:
       signer_info = signed_data['signer_infos'][0]
       u_attr = next((attr for attr in signer_info['unsigned_attrs'] if attr['type'].dotted == '1.2.840.113549.1.9.16.2.14'), None)
       if u_attr:
@@ -228,11 +236,9 @@ if __name__ == "__main__":
         signer_infos = u_obj['content']['signer_infos']
         if signer_infos:
           signing_time = next((attr['values'][0] for attr in signer_infos[0]['signed_attrs'] if attr['type'] == 'signing_time'), None).astimezone(ZoneInfo("Europe/Kyiv")).replace(tzinfo=None)
-    else:
-      signing_time = "Not available"
-    print(f"[*] Signing Time:", signing_time)
-    print(f"[*] Signature Algorithm: {OID_MAP[sig_info["signAlgo"]]}")
-    print(f"[*] Signature Format: {sig_info["signatureFormat"]}")
+    print(f"[*] Signing Time = {signing_time}")
+    print(f"[*] Signature Algorithm = {OID_MAP[sig_info["signAlgo"]]}")
+    print(f"[*] Signature Format = {sig_info["signatureFormat"]}")
   else:
     print("[!] Signature verification returned warnings or errors")
     print(f"Status: {status}")
@@ -251,3 +257,4 @@ if __name__ == "__main__":
     print(f"[!] Deinitialization failed: {response_str}")
     sys.exit(1)
   lib.json_free(response_ptr)
+  
